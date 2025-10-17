@@ -32,10 +32,7 @@
             };
 
             const isWeekday = (dateStr) => {
-                if (!dateStr) return false;
-                const date = new Date(dateStr);
-                const day = date.getDay();
-                return day >= 1 && day <= 6;
+                return true; // 모든 요일 허용
             };
 
             const getWeekNumber = (dateStr) => {
@@ -49,22 +46,20 @@
                 const [year, month] = yearMonth.split('-').map(Number);
                 const firstDay = new Date(year, month - 1, 1);
                 const lastDay = new Date(year, month, 0);
-                const weekdays = [];
+                const allDays = [];
 
                 for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
                     const day = d.getDay();
-                    if (day >= 1 && day <= 6) {
-                        const dateStr = d.toISOString().split('T')[0];
-                        weekdays.push({
-                            date: dateStr,
-                            day: d.getDate(),
-                            dayName: dayNames[day],
-                            hasData: !!allData[dateStr]
-                        });
-                    }
+                    const dateStr = d.toISOString().split('T')[0];
+                    allDays.push({
+                        date: dateStr,
+                        day: d.getDate(),
+                        dayName: dayNames[day],
+                        hasData: !!allData[dateStr]
+                    });
                 }
 
-                return weekdays;
+                return allDays;
             };
 
             const loadDate = (dateStr) => {
@@ -220,9 +215,7 @@
 
             const monthWeekdays = getMonthWeekdays(viewMonth);
             const monthStats = {
-                total: monthWeekdays.length,
-                written: monthWeekdays.filter(d => d.hasData).length,
-                missing: monthWeekdays.filter(d => !d.hasData).length
+                written: monthWeekdays.filter(d => d.hasData).length
             };
 
             const dayOfWeek = getDayOfWeek(currentDate);
@@ -250,23 +243,26 @@
                                         <div className="flex gap-2 flex-wrap">
                                             <button
                                                 onClick={copyToClipboard}
+                                                title="클립보드에 복사"
                                                 className="flex items-center gap-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
                                             >
                                                 {copied ? '✓' : '📋'}
                                             </button>
                                             <button
                                                 onClick={exportAllData}
+                                                title="전체 데이터 파일로 저장"
                                                 className="flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
                                             >
                                                 💾
                                             </button>
                                             <button
                                                 onClick={exportCombinedText}
+                                                title="텍스트 파일로 합치기"
                                                 className="flex items-center gap-2 px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm"
                                             >
                                                 📄
                                             </button>
-                                            <label className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors cursor-pointer text-sm">
+                                            <label title="저장된 파일 불러오기" className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors cursor-pointer text-sm">
                                                 📂
                                                 <input type="file" accept=".json" onChange={importData} className="hidden" />
                                             </label>
@@ -309,11 +305,6 @@
                                             {weekNum && (
                                                 <span className="text-gray-500 ml-3">
                                                     ({weekNum}주차)
-                                                </span>
-                                            )}
-                                            {!isValidDay && (
-                                                <span className="ml-3 text-red-500 font-semibold">
-                                                    ⚠️ 일요일은 기록할 수 없습니다
                                                 </span>
                                             )}
                                         </div>
@@ -367,15 +358,14 @@
                                         </button>
                                     </div>
 
-                                    <div className="mb-4 p-3 bg-amber-50 rounded-lg">
-                                        <div className="grid grid-cols-2 gap-2 text-sm">
-                                            <div>전체: {monthStats.total}일</div>
-                                            <div className="text-green-600 font-semibold">작성: {monthStats.written}일</div>
-                                            <div className="text-red-500 font-semibold" style={{gridColumn: 'span 2'}}>빠짐: {monthStats.missing}일</div>
+                                    <div className="mb-4 p-3 bg-amber-50 rounded-lg text-center">
+                                        <div className="text-lg">
+                                            <span className="text-green-600 font-bold text-2xl">{monthStats.written}</span>
+                                            <span className="text-gray-600 ml-2">일 작성</span>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-6 gap-2">
+                                    <div className="grid grid-cols-7 gap-2">
                                         {monthWeekdays.map(({ date, day, dayName, hasData }) => (
                                             <button
                                                 key={date}
@@ -410,10 +400,11 @@
                                 <div className="bg-white rounded-lg shadow-md p-5">
                                     <h3 className="font-semibold text-gray-800 mb-2">💡 사용 팁</h3>
                                     <ul className="text-xs text-gray-600 space-y-1">
-                                        <li>• 캘린더에서 빠진 날짜를 빨간색으로 표시</li>
+                                        <li>• 모든 요일(월~일) 입력 가능합니다</li>
+                                        <li>• 캘린더에서 빠진 날짜는 빨간색으로 표시</li>
                                         <li>• 작성 완료는 초록색으로 표시</li>
                                         <li>• 날짜 클릭으로 바로 이동</li>
-                                        <li>• 월 단위로 진행 상황 확인 가능</li>
+                                        <li>• 아이콘에 마우스를 올리면 기능 설명 표시</li>
                                     </ul>
                                 </div>
                             </div>
