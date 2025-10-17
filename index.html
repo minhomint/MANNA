@@ -19,8 +19,9 @@
             const [allData, setAllData] = useState({});
             const [currentDate, setCurrentDate] = useState('');
             const [currentText, setCurrentText] = useState('');
-            const [currentCompleted, setCurrentCompleted] = useState(false);
+
             const [copied, setCopied] = useState(false);
+            const [viewMonth, setViewMonth] = useState(new Date().toISOString().substring(0, 7));
 
             const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -34,7 +35,7 @@
                 if (!dateStr) return false;
                 const date = new Date(dateStr);
                 const day = date.getDay();
-                return day >= 1 && day <= 6; // 월(1) ~ 토(6)
+                return day >= 1 && day <= 6;
             };
 
             const getWeekNumber = (dateStr) => {
@@ -44,29 +45,47 @@
                 return Math.ceil((pastDays + firstDay.getDay() + 1) / 7);
             };
 
+            const getMonthWeekdays = (yearMonth) => {
+                const [year, month] = yearMonth.split('-').map(Number);
+                const firstDay = new Date(year, month - 1, 1);
+                const lastDay = new Date(year, month, 0);
+                const weekdays = [];
+
+                for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+                    const day = d.getDay();
+                    if (day >= 1 && day <= 6) {
+                        const dateStr = d.toISOString().split('T')[0];
+                        weekdays.push({
+                            date: dateStr,
+                            day: d.getDate(),
+                            dayName: dayNames[day],
+                            hasData: !!allData[dateStr]
+                        });
+                    }
+                }
+
+                return weekdays;
+            };
+
             const loadDate = (dateStr) => {
                 if (!dateStr) {
                     setCurrentText('');
-                    setCurrentCompleted(false);
                     return;
                 }
 
                 if (allData[dateStr]) {
                     setCurrentText(allData[dateStr].text || '');
-                    setCurrentCompleted(allData[dateStr].completed || false);
                 } else {
                     setCurrentText('');
-                    setCurrentCompleted(false);
                 }
             };
 
             const saveCurrentDate = () => {
-                if (currentDate && (currentText || currentCompleted)) {
+                if (currentDate && currentText) {
                     setAllData(prev => ({
                         ...prev,
                         [currentDate]: {
                             text: currentText,
-                            completed: currentCompleted,
                             dayOfWeek: getDayOfWeek(currentDate),
                             weekNumber: getWeekNumber(currentDate)
                         }
@@ -77,15 +96,12 @@
             const handleDateChange = (newDate) => {
                 saveCurrentDate();
                 setCurrentDate(newDate);
+                setViewMonth(newDate.substring(0, 7));
                 loadDate(newDate);
             };
 
             const handleTextChange = (value) => {
                 setCurrentText(value);
-            };
-
-            const toggleComplete = () => {
-                setCurrentCompleted(!currentCompleted);
             };
 
             const exportAllData = () => {
@@ -116,7 +132,6 @@
                     const [year, month, day] = date.split('-');
                     const weekNum = entry.weekNumber;
                     
-                    // 년도가 바뀌면
                     if (currentYear !== year) {
                         currentYear = year;
                         combinedText += `\n${'='.repeat(60)}\n`;
@@ -124,7 +139,6 @@
                         combinedText += `${'='.repeat(60)}\n\n`;
                     }
                     
-                    // 주차가 바뀌면
                     if (currentWeek !== weekNum) {
                         currentWeek = weekNum;
                         combinedText += `\n[ ${weekNum}주차 ]\n\n`;
@@ -196,13 +210,20 @@
                 handleDateChange(newDate);
             };
 
-            const totalEntries = Object.keys(allData).length;
-            const completedEntries = Object.values(allData).filter(d => d.completed).length;
+            const changeMonth = (offset) => {
+                const [year, month] = viewMonth.split('-').map(Number);
+                const newDate = new Date(year, month - 1 + offset, 1);
+                setViewMonth(newDate.toISOString().substring(0, 7));
+            };
 
-            // 최근 7일 데이터
-            const recentDates = Object.keys(allData)
-                .sort((a, b) => b.localeCompare(a))
-                .slice(0, 7);
+            const totalEntries = Object.keys(allData).length;
+
+            const monthWeekdays = getMonthWeekdays(viewMonth);
+            const monthStats = {
+                total: monthWeekdays.length,
+                written: monthWeekdays.filter(d => d.hasData).length,
+                missing: monthWeekdays.filter(d => !d.hasData).length
+            };
 
             const dayOfWeek = getDayOfWeek(currentDate);
             const isValidDay = isWeekday(currentDate);
@@ -210,185 +231,192 @@
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-6">
-                    <div className="max-w-4xl mx-auto">
-                        {/* Header */}
-                        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                            <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="text-4xl">🍞</div>
-                                    <div>
-                                        <h1 className="text-3xl font-bold text-amber-800">MANNA</h1>
-                                        <p className="text-sm text-gray-600">
-                                            총 {totalEntries}일 기록 | {completedEntries}일 완료
-                                        </p>
+                    <div className="max-w-7xl mx-auto">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Left Column - Main Content */}
+                            <div className="lg:col-span-2 space-y-6">
+                                {/* Header */}
+                                <div className="bg-white rounded-lg shadow-lg p-6">
+                                    <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-4xl">🍞</div>
+                                            <div>
+                                                <h1 className="text-3xl font-bold text-amber-800">MANNA</h1>
+                                                <p className="text-sm text-gray-600">
+                                                    총 {totalEntries}일 기록
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 flex-wrap">
+                                            <button
+                                                onClick={copyToClipboard}
+                                                className="flex items-center gap-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
+                                            >
+                                                {copied ? '✓' : '📋'}
+                                            </button>
+                                            <button
+                                                onClick={exportAllData}
+                                                className="flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                                            >
+                                                💾
+                                            </button>
+                                            <button
+                                                onClick={exportCombinedText}
+                                                className="flex items-center gap-2 px-3 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm"
+                                            >
+                                                📄
+                                            </button>
+                                            <label className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors cursor-pointer text-sm">
+                                                📂
+                                                <input type="file" accept=".json" onChange={importData} className="hidden" />
+                                            </label>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex gap-2 flex-wrap">
-                                    <button
-                                        onClick={copyToClipboard}
-                                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
-                                    >
-                                        {copied ? '✓' : '📋'} {copied ? '복사됨!' : '복사'}
-                                    </button>
-                                    <button
-                                        onClick={exportAllData}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
-                                    >
-                                        💾 전체저장
-                                    </button>
-                                    <button
-                                        onClick={exportCombinedText}
-                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm"
-                                    >
-                                        📄 텍스트 합치기
-                                    </button>
-                                    <label className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors cursor-pointer text-sm">
-                                        📂 불러오기
-                                        <input type="file" accept=".json" onChange={importData} className="hidden" />
-                                    </label>
-                                </div>
-                            </div>
 
-                            {/* Date Input */}
-                            <div className="flex gap-3 items-center mb-4">
-                                <button
-                                    onClick={() => changeDay(-1)}
-                                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-bold"
-                                >
-                                    ◀ 이전
-                                </button>
-                                <input
-                                    type="date"
-                                    value={currentDate}
-                                    onChange={(e) => handleDateChange(e.target.value)}
-                                    className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-lg font-semibold"
-                                />
-                                <button
-                                    onClick={goToToday}
-                                    className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600"
-                                >
-                                    오늘
-                                </button>
-                                <button
-                                    onClick={() => changeDay(1)}
-                                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-bold"
-                                >
-                                    다음 ▶
-                                </button>
-                            </div>
+                                    {/* Date Input */}
+                                    <div className="flex gap-3 items-center mb-4">
+                                        <button
+                                            onClick={() => changeDay(-1)}
+                                            className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-bold"
+                                        >
+                                            ◀
+                                        </button>
+                                        <input
+                                            type="date"
+                                            value={currentDate}
+                                            onChange={(e) => handleDateChange(e.target.value)}
+                                            className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-lg font-semibold"
+                                        />
+                                        <button
+                                            onClick={goToToday}
+                                            className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600"
+                                        >
+                                            오늘
+                                        </button>
+                                        <button
+                                            onClick={() => changeDay(1)}
+                                            className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-bold"
+                                        >
+                                            ▶
+                                        </button>
+                                    </div>
 
-                            {currentDate && (
-                                <div className="text-center mb-2">
-                                    <span className="text-2xl font-bold text-gray-800">
-                                        {dayOfWeek}요일
-                                    </span>
-                                    {weekNum && (
-                                        <span className="text-gray-500 ml-3">
-                                            ({weekNum}주차)
-                                        </span>
-                                    )}
-                                    {!isValidDay && (
-                                        <span className="ml-3 text-red-500 font-semibold">
-                                            ⚠️ 일요일은 기록할 수 없습니다
-                                        </span>
+                                    {currentDate && (
+                                        <div className="text-center mb-2">
+                                            <span className="text-2xl font-bold text-gray-800">
+                                                {dayOfWeek}요일
+                                            </span>
+                                            {weekNum && (
+                                                <span className="text-gray-500 ml-3">
+                                                    ({weekNum}주차)
+                                                </span>
+                                            )}
+                                            {!isValidDay && (
+                                                <span className="ml-3 text-red-500 font-semibold">
+                                                    ⚠️ 일요일은 기록할 수 없습니다
+                                                </span>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
-                            )}
-                        </div>
 
-                        {/* Main Input */}
-                        {currentDate && isValidDay && (
-                            <div className="bg-white rounded-lg shadow-md p-5 mb-6">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-xl font-semibold text-gray-800">
-                                        {currentDate} ({dayOfWeek}요일)
-                                    </h3>
-                                    <button
-                                        onClick={toggleComplete}
-                                        className="focus:outline-none hover:scale-110 transition-transform"
-                                    >
-                                        {currentCompleted ? (
-                                            <svg className="text-green-500 w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
-                                                <circle cx="12" cy="12" r="10"></circle>
-                                                <polyline points="9 12 11 14 15 10" stroke="white" strokeWidth="2" fill="none"></polyline>
-                                            </svg>
-                                        ) : (
-                                            <svg className="text-gray-300 w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <circle cx="12" cy="12" r="10"></circle>
-                                            </svg>
+                                {/* Main Input */}
+                                {currentDate && isValidDay && (
+                                    <div className="bg-white rounded-lg shadow-md p-5">
+                                        <div className="mb-3">
+                                            <h3 className="text-xl font-semibold text-gray-800">
+                                                {currentDate} ({dayOfWeek}요일)
+                                            </h3>
+                                        </div>
+                                        <textarea
+                                            value={currentText}
+                                            onChange={(e) => handleTextChange(e.target.value)}
+                                            placeholder="오늘의 녹취 내용을 입력하세요..."
+                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none resize-none"
+                                            rows={10}
+                                            onBlur={saveCurrentDate}
+                                        />
+                                        {currentText && (
+                                            <div className="mt-2 text-sm text-gray-600">
+                                                {currentText.length}자
+                                            </div>
                                         )}
-                                    </button>
-                                </div>
-                                <textarea
-                                    value={currentText}
-                                    onChange={(e) => handleTextChange(e.target.value)}
-                                    placeholder="오늘의 녹취 내용을 입력하세요..."
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none resize-none"
-                                    rows={10}
-                                    onBlur={saveCurrentDate}
-                                />
-                                {currentText && (
-                                    <div className="mt-2 text-sm text-gray-600">
-                                        {currentText.length}자
                                     </div>
                                 )}
                             </div>
-                        )}
 
-                        {/* Recent Entries */}
-                        {recentDates.length > 0 && (
-                            <div className="bg-white rounded-lg shadow-md p-5 mb-6">
-                                <h3 className="font-semibold text-gray-800 mb-3">📅 최근 기록</h3>
-                                <div className="space-y-2">
-                                    {recentDates.map(date => {
-                                        const entry = allData[date];
-                                        const [year, month, day] = date.split('-');
-                                        return (
-                                            <div
+                            {/* Right Column - Calendar View */}
+                            <div className="space-y-6">
+                                {/* Monthly Calendar */}
+                                <div className="bg-white rounded-lg shadow-lg p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <button
+                                            onClick={() => changeMonth(-1)}
+                                            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                                        >
+                                            ◀
+                                        </button>
+                                        <h3 className="text-lg font-bold text-gray-800">
+                                            {viewMonth.replace('-', '년 ')}월
+                                        </h3>
+                                        <button
+                                            onClick={() => changeMonth(1)}
+                                            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                                        >
+                                            ▶
+                                        </button>
+                                    </div>
+
+                                    <div className="mb-4 p-3 bg-amber-50 rounded-lg">
+                                        <div className="grid grid-cols-2 gap-2 text-sm">
+                                            <div>전체: {monthStats.total}일</div>
+                                            <div className="text-green-600 font-semibold">작성: {monthStats.written}일</div>
+                                            <div className="text-red-500 font-semibold" style={{gridColumn: 'span 2'}}>빠짐: {monthStats.missing}일</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-6 gap-2">
+                                        {monthWeekdays.map(({ date, day, dayName, hasData }) => (
+                                            <button
                                                 key={date}
                                                 onClick={() => handleDateChange(date)}
-                                                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+                                                className={`p-2 rounded-lg text-center transition-all ${
+                                                    date === currentDate
+                                                        ? 'bg-amber-500 text-white font-bold ring-2 ring-amber-600'
+                                                        : hasData
+                                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                        : 'bg-red-50 text-red-500 hover:bg-red-100'
+                                                }`}
                                             >
-                                                <div className="flex-shrink-0">
-                                                    {entry.completed ? (
-                                                        <svg className="text-green-500 w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                                            <circle cx="12" cy="12" r="10"></circle>
-                                                            <polyline points="9 12 11 14 15 10" stroke="white" strokeWidth="2" fill="none"></polyline>
-                                                        </svg>
-                                                    ) : (
-                                                        <svg className="text-gray-300 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                            <circle cx="12" cy="12" r="10"></circle>
-                                                        </svg>
-                                                    )}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="font-semibold text-gray-700">
-                                                        {month}/{day} ({entry.dayOfWeek}요일)
-                                                    </div>
-                                                    {entry.text && (
-                                                        <div className="text-sm text-gray-500 truncate">
-                                                            {entry.text.substring(0, 50)}...
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                                <div className="text-xs">{dayName}</div>
+                                                <div className="font-bold">{day}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-4 text-xs space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 bg-green-100 rounded"></div>
+                                            <span>작성 완료</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 bg-red-50 rounded"></div>
+                                            <span>미작성</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Tips */}
+                                <div className="bg-white rounded-lg shadow-md p-5">
+                                    <h3 className="font-semibold text-gray-800 mb-2">💡 사용 팁</h3>
+                                    <ul className="text-xs text-gray-600 space-y-1">
+                                        <li>• 캘린더에서 빠진 날짜를 빨간색으로 표시</li>
+                                        <li>• 작성 완료는 초록색으로 표시</li>
+                                        <li>• 날짜 클릭으로 바로 이동</li>
+                                        <li>• 월 단위로 진행 상황 확인 가능</li>
+                                    </ul>
                                 </div>
                             </div>
-                        )}
-
-                        {/* Tips */}
-                        <div className="bg-white rounded-lg shadow-md p-5">
-                            <h3 className="font-semibold text-gray-800 mb-2">💡 사용 팁</h3>
-                            <ul className="text-sm text-gray-600 space-y-1">
-                                <li>• 날짜를 선택하면 자동으로 요일과 주차가 계산됩니다</li>
-                                <li>• 월요일~토요일만 기록 가능합니다 (일요일 제외)</li>
-                                <li>• 작성 후 다른 날짜로 이동하면 자동 저장됩니다</li>
-                                <li>• '전체저장'으로 정기적으로 백업하세요</li>
-                                <li>• '텍스트 합치기'로 연도별, 주차별로 정리된 전체 녹취를 얻을 수 있습니다</li>
-                                <li>• 최근 기록을 클릭하면 해당 날짜로 이동합니다</li>
-                            </ul>
                         </div>
                     </div>
                 </div>
