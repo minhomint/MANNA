@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MANNA </title>
+    <title>MANNA</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -13,121 +13,85 @@
     <div id="root"></div>
     
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState } = React;
         
         function MannaTracker() {
-            const [currentWeek, setCurrentWeek] = useState(1);
-            const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-            const [mannaTitle, setMannaTitle] = useState('');
-            const [weekStartDate, setWeekStartDate] = useState('');
-            const [allWeeksData, setAllWeeksData] = useState({});
-            const [weeklyData, setWeeklyData] = useState({
-                monday: { text: '', completed: false },
-                tuesday: { text: '', completed: false },
-                wednesday: { text: '', completed: false },
-                thursday: { text: '', completed: false },
-                friday: { text: '', completed: false },
-                saturday: { text: '', completed: false }
-            });
+            const [allData, setAllData] = useState({});
+            const [currentDate, setCurrentDate] = useState('');
+            const [currentText, setCurrentText] = useState('');
+            const [currentCompleted, setCurrentCompleted] = useState(false);
             const [copied, setCopied] = useState(false);
 
-            const days = [
-                { key: 'monday', label: '월요일', color: 'bg-blue-50 border-blue-200' },
-                { key: 'tuesday', label: '화요일', color: 'bg-green-50 border-green-200' },
-                { key: 'wednesday', label: '수요일', color: 'bg-yellow-50 border-yellow-200' },
-                { key: 'thursday', label: '목요일', color: 'bg-purple-50 border-purple-200' },
-                { key: 'friday', label: '금요일', color: 'bg-pink-50 border-pink-200' },
-                { key: 'saturday', label: '토요일', color: 'bg-indigo-50 border-indigo-200' }
-            ];
+            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
-            useEffect(() => {
-                loadWeekData(currentWeek);
-            }, [currentWeek, currentYear]);
+            const getDayOfWeek = (dateStr) => {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                return dayNames[date.getDay()];
+            };
 
-            const getWeekDates = (startDateStr) => {
-                if (!startDateStr) return null;
-                
-                const startDate = new Date(startDateStr);
-                const dates = [];
-                
-                for (let i = 0; i < 6; i++) {
-                    const date = new Date(startDate);
-                    date.setDate(startDate.getDate() + i);
-                    dates.push({
-                        full: date.toLocaleDateString('ko-KR'),
-                        short: `${date.getMonth() + 1}/${date.getDate()}`
-                    });
+            const isWeekday = (dateStr) => {
+                if (!dateStr) return false;
+                const date = new Date(dateStr);
+                const day = date.getDay();
+                return day >= 1 && day <= 6; // 월(1) ~ 토(6)
+            };
+
+            const getWeekNumber = (dateStr) => {
+                const date = new Date(dateStr);
+                const firstDay = new Date(date.getFullYear(), 0, 1);
+                const pastDays = (date - firstDay) / 86400000;
+                return Math.ceil((pastDays + firstDay.getDay() + 1) / 7);
+            };
+
+            const loadDate = (dateStr) => {
+                if (!dateStr) {
+                    setCurrentText('');
+                    setCurrentCompleted(false);
+                    return;
                 }
-                
-                return {
-                    start: dates[0].full,
-                    end: dates[5].full,
-                    days: dates
-                };
-            };
 
-            const saveCurrentWeek = () => {
-                const weekKey = `${currentYear}-${currentWeek}`;
-                setAllWeeksData(prev => ({
-                    ...prev,
-                    [weekKey]: {
-                        year: currentYear,
-                        week: currentWeek,
-                        title: mannaTitle,
-                        startDate: weekStartDate,
-                        data: weeklyData
-                    }
-                }));
-            };
-
-            const loadWeekData = (weekNum) => {
-                const weekKey = `${currentYear}-${weekNum}`;
-                if (allWeeksData[weekKey]) {
-                    setMannaTitle(allWeeksData[weekKey].title || '');
-                    setWeekStartDate(allWeeksData[weekKey].startDate || '');
-                    setWeeklyData(allWeeksData[weekKey].data);
+                if (allData[dateStr]) {
+                    setCurrentText(allData[dateStr].text || '');
+                    setCurrentCompleted(allData[dateStr].completed || false);
                 } else {
-                    setMannaTitle('');
-                    setWeekStartDate('');
-                    setWeeklyData({
-                        monday: { text: '', completed: false },
-                        tuesday: { text: '', completed: false },
-                        wednesday: { text: '', completed: false },
-                        thursday: { text: '', completed: false },
-                        friday: { text: '', completed: false },
-                        saturday: { text: '', completed: false }
-                    });
+                    setCurrentText('');
+                    setCurrentCompleted(false);
                 }
             };
 
-            const changeWeek = (weekNum) => {
-                saveCurrentWeek();
-                setCurrentWeek(weekNum);
+            const saveCurrentDate = () => {
+                if (currentDate && (currentText || currentCompleted)) {
+                    setAllData(prev => ({
+                        ...prev,
+                        [currentDate]: {
+                            text: currentText,
+                            completed: currentCompleted,
+                            dayOfWeek: getDayOfWeek(currentDate),
+                            weekNumber: getWeekNumber(currentDate)
+                        }
+                    }));
+                }
             };
 
-            const changeYear = (year) => {
-                saveCurrentWeek();
-                setCurrentYear(year);
+            const handleDateChange = (newDate) => {
+                saveCurrentDate();
+                setCurrentDate(newDate);
+                loadDate(newDate);
             };
 
-            const handleTextChange = (day, value) => {
-                setWeeklyData(prev => ({
-                    ...prev,
-                    [day]: { ...prev[day], text: value }
-                }));
+            const handleTextChange = (value) => {
+                setCurrentText(value);
             };
 
-            const toggleComplete = (day) => {
-                setWeeklyData(prev => ({
-                    ...prev,
-                    [day]: { ...prev[day], completed: !prev[day].completed }
-                }));
+            const toggleComplete = () => {
+                setCurrentCompleted(!currentCompleted);
             };
 
-            const exportAllWeeks = () => {
-                saveCurrentWeek();
+            const exportAllData = () => {
+                saveCurrentDate();
                 const data = {
-                    allWeeks: allWeeksData,
+                    allData: allData,
                     exportDate: new Date().toISOString()
                 };
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -140,41 +104,36 @@
             };
 
             const exportCombinedText = () => {
-                saveCurrentWeek();
+                saveCurrentDate();
                 let combinedText = `MANNA 전체 녹취\n\n`;
                 
-                const sortedKeys = Object.keys(allWeeksData).sort((a, b) => {
-                    const [yearA, weekA] = a.split('-').map(Number);
-                    const [yearB, weekB] = b.split('-').map(Number);
-                    if (yearA !== yearB) return yearA - yearB;
-                    return weekA - weekB;
-                });
+                const sortedDates = Object.keys(allData).sort();
+                let currentYear = null;
+                let currentWeek = null;
 
-                sortedKeys.forEach(weekKey => {
-                    const weekData = allWeeksData[weekKey];
-                    const dates = getWeekDates(weekData.startDate);
+                sortedDates.forEach(date => {
+                    const entry = allData[date];
+                    const [year, month, day] = date.split('-');
+                    const weekNum = entry.weekNumber;
                     
-                    combinedText += `\n${'='.repeat(60)}\n`;
-                    combinedText += `${weekData.year}년 ${weekData.week}주차`;
-                    if (weekData.title) {
-                        combinedText += ` - ${weekData.title}`;
+                    // 년도가 바뀌면
+                    if (currentYear !== year) {
+                        currentYear = year;
+                        combinedText += `\n${'='.repeat(60)}\n`;
+                        combinedText += `${year}년\n`;
+                        combinedText += `${'='.repeat(60)}\n\n`;
                     }
-                    if (dates) {
-                        combinedText += `\n${dates.start} ~ ${dates.end}`;
-                    }
-                    combinedText += `\n${'='.repeat(60)}\n\n`;
                     
-                    days.forEach((day, index) => {
-                        const dayData = weekData.data[day.key];
-                        if (dayData.text) {
-                            combinedText += `【${day.label}`;
-                            if (dates) {
-                                combinedText += ` ${dates.days[index].short}`;
-                            }
-                            combinedText += `】\n`;
-                            combinedText += `${dayData.text}\n\n`;
-                        }
-                    });
+                    // 주차가 바뀌면
+                    if (currentWeek !== weekNum) {
+                        currentWeek = weekNum;
+                        combinedText += `\n[ ${weekNum}주차 ]\n\n`;
+                    }
+                    
+                    if (entry.text) {
+                        combinedText += `【${entry.dayOfWeek}요일 ${month}/${day}】\n`;
+                        combinedText += `${entry.text}\n\n`;
+                    }
                 });
 
                 const blob = new Blob([combinedText], { type: 'text/plain;charset=utf-8' });
@@ -193,10 +152,9 @@
                     reader.onload = (e) => {
                         try {
                             const data = JSON.parse(e.target.result);
-                            setAllWeeksData(data.allWeeks || {});
-                            const weekKey = `${currentYear}-${currentWeek}`;
-                            if (data.allWeeks && data.allWeeks[weekKey]) {
-                                loadWeekData(currentWeek);
+                            setAllData(data.allData || {});
+                            if (currentDate && data.allData[currentDate]) {
+                                loadDate(currentDate);
                             }
                         } catch (error) {
                             alert('파일을 불러오는데 실패했습니다.');
@@ -207,9 +165,9 @@
             };
 
             const copyToClipboard = async () => {
-                saveCurrentWeek();
+                saveCurrentDate();
                 const data = {
-                    allWeeks: allWeeksData,
+                    allData: allData,
                     exportDate: new Date().toISOString()
                 };
                 try {
@@ -221,14 +179,39 @@
                 }
             };
 
-            const completedCount = Object.values(weeklyData).filter(d => d.completed).length;
-            const progress = (completedCount / 6) * 100;
-            const totalWeeks = Object.keys(allWeeksData).length;
-            const weekDates = getWeekDates(weekStartDate);
+            const goToToday = () => {
+                const today = new Date();
+                const todayStr = today.toISOString().split('T')[0];
+                handleDateChange(todayStr);
+            };
+
+            const changeDay = (offset) => {
+                if (!currentDate) {
+                    goToToday();
+                    return;
+                }
+                const date = new Date(currentDate);
+                date.setDate(date.getDate() + offset);
+                const newDate = date.toISOString().split('T')[0];
+                handleDateChange(newDate);
+            };
+
+            const totalEntries = Object.keys(allData).length;
+            const completedEntries = Object.values(allData).filter(d => d.completed).length;
+
+            // 최근 7일 데이터
+            const recentDates = Object.keys(allData)
+                .sort((a, b) => b.localeCompare(a))
+                .slice(0, 7);
+
+            const dayOfWeek = getDayOfWeek(currentDate);
+            const isValidDay = isWeekday(currentDate);
+            const weekNum = currentDate ? getWeekNumber(currentDate) : null;
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-6">
                     <div className="max-w-4xl mx-auto">
+                        {/* Header */}
                         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                             <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
                                 <div className="flex items-center gap-3">
@@ -236,8 +219,7 @@
                                     <div>
                                         <h1 className="text-3xl font-bold text-amber-800">MANNA</h1>
                                         <p className="text-sm text-gray-600">
-                                            {currentYear}년 {currentWeek}주차
-                                            {weekDates && ` (${weekDates.start} ~ ${weekDates.end})`}
+                                            총 {totalEntries}일 기록 | {completedEntries}일 완료
                                         </p>
                                     </div>
                                 </div>
@@ -249,7 +231,7 @@
                                         {copied ? '✓' : '📋'} {copied ? '복사됨!' : '복사'}
                                     </button>
                                     <button
-                                        onClick={exportAllWeeks}
+                                        onClick={exportAllData}
                                         className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
                                     >
                                         💾 전체저장
@@ -267,127 +249,145 @@
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div className="flex gap-3 items-center">
-                                    <label className="text-gray-700 font-medium">년도</label>
-                                    <input
-                                        type="number"
-                                        min="2024"
-                                        max="2030"
-                                        value={currentYear}
-                                        onChange={(e) => changeYear(Number(e.target.value))}
-                                        className="w-28 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-center font-semibold"
-                                    />
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="52"
-                                        value={currentWeek}
-                                        onChange={(e) => changeWeek(Number(e.target.value))}
-                                        className="w-24 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-center font-semibold"
-                                    />
-                                    <span className="text-gray-600">주차</span>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => changeWeek(Math.max(1, currentWeek - 1))}
-                                            className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-                                        >
-                                            ◀
-                                        </button>
-                                        <button
-                                            onClick={() => changeWeek(Math.min(52, currentWeek + 1))}
-                                            className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-                                        >
-                                            ▶
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div className="flex gap-3 items-center">
-                                    <label className="text-gray-700 font-medium">시작일(월)</label>
-                                    <input
-                                        type="date"
-                                        value={weekStartDate}
-                                        onChange={(e) => setWeekStartDate(e.target.value)}
-                                        className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
-                                    />
-                                </div>
-                            </div>
-
-                            <input
-                                type="text"
-                                value={mannaTitle}
-                                onChange={(e) => setMannaTitle(e.target.value)}
-                                placeholder="이번 주 제목을 입력하세요"
-                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-lg mb-4"
-                            />
-
-                            <div className="flex justify-between items-center text-sm mb-2">
-                                <span className="text-gray-600">이번 주 진행률: {completedCount}/6 완료</span>
-                                <span className="text-gray-500">총 저장: {totalWeeks}주차</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-3">
-                                <div
-                                    className="bg-amber-500 h-3 rounded-full transition-all duration-300"
-                                    style={{ width: `${progress}%` }}
+                            {/* Date Input */}
+                            <div className="flex gap-3 items-center mb-4">
+                                <button
+                                    onClick={() => changeDay(-1)}
+                                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-bold"
+                                >
+                                    ◀ 이전
+                                </button>
+                                <input
+                                    type="date"
+                                    value={currentDate}
+                                    onChange={(e) => handleDateChange(e.target.value)}
+                                    className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-lg font-semibold"
                                 />
+                                <button
+                                    onClick={goToToday}
+                                    className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600"
+                                >
+                                    오늘
+                                </button>
+                                <button
+                                    onClick={() => changeDay(1)}
+                                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-bold"
+                                >
+                                    다음 ▶
+                                </button>
                             </div>
-                        </div>
 
-                        <div className="space-y-4">
-                            {days.map(({ key, label, color }, index) => (
-                                <div key={key} className={`bg-white rounded-lg shadow-md border-2 ${color} p-5`}>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-3">
-                                            <button
-                                                onClick={() => toggleComplete(key)}
-                                                className="focus:outline-none hover:scale-110 transition-transform"
-                                            >
-                                                {weeklyData[key].completed ? (
-                                                    <svg className="text-green-500 w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                                                        <circle cx="12" cy="12" r="10"></circle>
-                                                        <polyline points="9 12 11 14 15 10" stroke="white" strokeWidth="2" fill="none"></polyline>
-                                                    </svg>
-                                                ) : (
-                                                    <svg className="text-gray-300 w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                        <circle cx="12" cy="12" r="10"></circle>
-                                                    </svg>
-                                                )}
-                                            </button>
-                                            <h3 className="text-xl font-semibold text-gray-800">
-                                                {label}
-                                                {weekDates && (
-                                                    <span className="text-base text-gray-500 ml-2">
-                                                        ({weekDates.days[index].short})
-                                                    </span>
-                                                )}
-                                            </h3>
-                                        </div>
-                                    </div>
-                                    <textarea
-                                        value={weeklyData[key].text}
-                                        onChange={(e) => handleTextChange(key, e.target.value)}
-                                        placeholder="오늘의 녹취 내용을 입력하세요..."
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none resize-none"
-                                        rows={4}
-                                    />
-                                    {weeklyData[key].text && (
-                                        <div className="mt-2 text-sm text-gray-600">
-                                            {weeklyData[key].text.length}자
-                                        </div>
+                            {currentDate && (
+                                <div className="text-center mb-2">
+                                    <span className="text-2xl font-bold text-gray-800">
+                                        {dayOfWeek}요일
+                                    </span>
+                                    {weekNum && (
+                                        <span className="text-gray-500 ml-3">
+                                            ({weekNum}주차)
+                                        </span>
+                                    )}
+                                    {!isValidDay && (
+                                        <span className="ml-3 text-red-500 font-semibold">
+                                            ⚠️ 일요일은 기록할 수 없습니다
+                                        </span>
                                     )}
                                 </div>
-                            ))}
+                            )}
                         </div>
 
-                        <div className="mt-6 bg-white rounded-lg shadow-md p-5">
+                        {/* Main Input */}
+                        {currentDate && isValidDay && (
+                            <div className="bg-white rounded-lg shadow-md p-5 mb-6">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-xl font-semibold text-gray-800">
+                                        {currentDate} ({dayOfWeek}요일)
+                                    </h3>
+                                    <button
+                                        onClick={toggleComplete}
+                                        className="focus:outline-none hover:scale-110 transition-transform"
+                                    >
+                                        {currentCompleted ? (
+                                            <svg className="text-green-500 w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <polyline points="9 12 11 14 15 10" stroke="white" strokeWidth="2" fill="none"></polyline>
+                                            </svg>
+                                        ) : (
+                                            <svg className="text-gray-300 w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
+                                <textarea
+                                    value={currentText}
+                                    onChange={(e) => handleTextChange(e.target.value)}
+                                    placeholder="오늘의 녹취 내용을 입력하세요..."
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none resize-none"
+                                    rows={10}
+                                    onBlur={saveCurrentDate}
+                                />
+                                {currentText && (
+                                    <div className="mt-2 text-sm text-gray-600">
+                                        {currentText.length}자
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Recent Entries */}
+                        {recentDates.length > 0 && (
+                            <div className="bg-white rounded-lg shadow-md p-5 mb-6">
+                                <h3 className="font-semibold text-gray-800 mb-3">📅 최근 기록</h3>
+                                <div className="space-y-2">
+                                    {recentDates.map(date => {
+                                        const entry = allData[date];
+                                        const [year, month, day] = date.split('-');
+                                        return (
+                                            <div
+                                                key={date}
+                                                onClick={() => handleDateChange(date)}
+                                                className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+                                            >
+                                                <div className="flex-shrink-0">
+                                                    {entry.completed ? (
+                                                        <svg className="text-green-500 w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                            <polyline points="9 12 11 14 15 10" stroke="white" strokeWidth="2" fill="none"></polyline>
+                                                        </svg>
+                                                    ) : (
+                                                        <svg className="text-gray-300 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="font-semibold text-gray-700">
+                                                        {month}/{day} ({entry.dayOfWeek}요일)
+                                                    </div>
+                                                    {entry.text && (
+                                                        <div className="text-sm text-gray-500 truncate">
+                                                            {entry.text.substring(0, 50)}...
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tips */}
+                        <div className="bg-white rounded-lg shadow-md p-5">
                             <h3 className="font-semibold text-gray-800 mb-2">💡 사용 팁</h3>
                             <ul className="text-sm text-gray-600 space-y-1">
-                                <li>• 년도와 주차를 변경하면 자동으로 저장됩니다</li>
-                                <li>• 시작일(월요일)을 입력하면 각 요일의 날짜가 자동 계산됩니다</li>
-                                <li>• '전체저장'으로 모든 데이터를 백업하세요</li>
-                                <li>• '텍스트 합치기'로 년도별, 주차별로 정리된 전체 녹취를 얻을 수 있습니다</li>
-                                <li>• 2026년, 2027년... 계속 사용 가능합니다</li>
+                                <li>• 날짜를 선택하면 자동으로 요일과 주차가 계산됩니다</li>
+                                <li>• 월요일~토요일만 기록 가능합니다 (일요일 제외)</li>
+                                <li>• 작성 후 다른 날짜로 이동하면 자동 저장됩니다</li>
+                                <li>• '전체저장'으로 정기적으로 백업하세요</li>
+                                <li>• '텍스트 합치기'로 연도별, 주차별로 정리된 전체 녹취를 얻을 수 있습니다</li>
+                                <li>• 최근 기록을 클릭하면 해당 날짜로 이동합니다</li>
                             </ul>
                         </div>
                     </div>
