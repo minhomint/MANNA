@@ -65,22 +65,26 @@
             const loadDate = (dateStr) => {
                 if (!dateStr) {
                     setCurrentText('');
+                    setCurrentMemo('');
                     return;
                 }
 
                 if (allData[dateStr]) {
                     setCurrentText(allData[dateStr].text || '');
+                    setCurrentMemo(allData[dateStr].memo || '');
                 } else {
                     setCurrentText('');
+                    setCurrentMemo('');
                 }
             };
 
             const saveCurrentDate = () => {
-                if (currentDate && currentText) {
+                if (currentDate && (currentText || currentMemo)) {
                     setAllData(prev => ({
                         ...prev,
                         [currentDate]: {
                             text: currentText,
+                            memo: currentMemo,
                             dayOfWeek: getDayOfWeek(currentDate),
                             weekNumber: getWeekNumber(currentDate)
                         }
@@ -411,14 +415,31 @@
 
                                 {/* Tips */}
                                 <div className="bg-white rounded-lg shadow-md p-5">
-                                    <h3 className="font-semibold text-gray-800 mb-2">💡 사용 팁</h3>
-                                    <ul className="text-xs text-gray-600 space-y-1">
-                                        <li>• 모든 요일(월~일) 입력 가능합니다</li>
-                                        <li>• 캘린더에서 빠진 날짜는 빨간색으로 표시</li>
-                                        <li>• 작성 완료는 초록색으로 표시</li>
-                                        <li>• 날짜 클릭으로 바로 이동</li>
-                                        <li>• 아이콘에 마우스를 올리면 기능 설명 표시</li>
-                                    </ul>
+                                    <h3 className="font-semibold text-gray-800 mb-3">📝 간단 메모</h3>
+                                    {currentDate ? (
+                                        <div>
+                                            <div className="text-sm text-gray-600 mb-2">
+                                                {currentDate} ({dayOfWeek}요일)
+                                            </div>
+                                            <textarea
+                                                value={currentMemo}
+                                                onChange={(e) => setCurrentMemo(e.target.value)}
+                                                onBlur={saveCurrentDate}
+                                                placeholder="오늘의 간단한 메모를 입력하세요..."
+                                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none resize-none text-sm"
+                                                rows={4}
+                                            />
+                                            {currentMemo && (
+                                                <div className="mt-1 text-xs text-gray-500">
+                                                    {currentMemo.length}자
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-sm text-gray-500 text-center py-4">
+                                            날짜를 선택하면 메모를 작성할 수 있습니다
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
