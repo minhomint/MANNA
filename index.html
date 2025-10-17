@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MANNA 녹취 관리</title>
+    <title>MANNA </title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -19,6 +19,7 @@
             const [currentWeek, setCurrentWeek] = useState(1);
             const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
             const [mannaTitle, setMannaTitle] = useState('');
+            const [weekStartDate, setWeekStartDate] = useState('');
             const [allWeeksData, setAllWeeksData] = useState({});
             const [weeklyData, setWeeklyData] = useState({
                 monday: { text: '', completed: false },
@@ -41,24 +42,53 @@
 
             useEffect(() => {
                 loadWeekData(currentWeek);
-            }, [currentWeek]);
+            }, [currentWeek, currentYear]);
+
+            const getWeekDates = (startDateStr) => {
+                if (!startDateStr) return null;
+                
+                const startDate = new Date(startDateStr);
+                const dates = [];
+                
+                for (let i = 0; i < 6; i++) {
+                    const date = new Date(startDate);
+                    date.setDate(startDate.getDate() + i);
+                    dates.push({
+                        full: date.toLocaleDateString('ko-KR'),
+                        short: `${date.getMonth() + 1}/${date.getDate()}`
+                    });
+                }
+                
+                return {
+                    start: dates[0].full,
+                    end: dates[5].full,
+                    days: dates
+                };
+            };
 
             const saveCurrentWeek = () => {
+                const weekKey = `${currentYear}-${currentWeek}`;
                 setAllWeeksData(prev => ({
                     ...prev,
-                    [currentWeek]: {
+                    [weekKey]: {
+                        year: currentYear,
+                        week: currentWeek,
                         title: mannaTitle,
+                        startDate: weekStartDate,
                         data: weeklyData
                     }
                 }));
             };
 
             const loadWeekData = (weekNum) => {
-                if (allWeeksData[weekNum]) {
-                    setMannaTitle(allWeeksData[weekNum].title || '');
-                    setWeeklyData(allWeeksData[weekNum].data);
+                const weekKey = `${currentYear}-${weekNum}`;
+                if (allWeeksData[weekKey]) {
+                    setMannaTitle(allWeeksData[weekKey].title || '');
+                    setWeekStartDate(allWeeksData[weekKey].startDate || '');
+                    setWeeklyData(allWeeksData[weekKey].data);
                 } else {
                     setMannaTitle('');
+                    setWeekStartDate('');
                     setWeeklyData({
                         monday: { text: '', completed: false },
                         tuesday: { text: '', completed: false },
@@ -73,6 +103,11 @@
             const changeWeek = (weekNum) => {
                 saveCurrentWeek();
                 setCurrentWeek(weekNum);
+            };
+
+            const changeYear = (year) => {
+                saveCurrentWeek();
+                setCurrentYear(year);
             };
 
             const handleTextChange = (day, value) => {
@@ -92,7 +127,6 @@
             const exportAllWeeks = () => {
                 saveCurrentWeek();
                 const data = {
-                    year: currentYear,
                     allWeeks: allWeeksData,
                     exportDate: new Date().toISOString()
                 };
@@ -100,28 +134,44 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `MANNA_${currentYear}_전체.json`;
+                a.download = `MANNA_전체데이터.json`;
                 a.click();
                 URL.revokeObjectURL(url);
             };
 
             const exportCombinedText = () => {
                 saveCurrentWeek();
-                let combinedText = `MANNA ${currentYear}년 전체 녹취\n\n`;
+                let combinedText = `MANNA 전체 녹취\n\n`;
                 
-                Object.keys(allWeeksData).sort((a, b) => Number(a) - Number(b)).forEach(weekNum => {
-                    const weekData = allWeeksData[weekNum];
-                    combinedText += `\n${'='.repeat(50)}\n`;
-                    combinedText += `${weekNum}주차`;
+                const sortedKeys = Object.keys(allWeeksData).sort((a, b) => {
+                    const [yearA, weekA] = a.split('-').map(Number);
+                    const [yearB, weekB] = b.split('-').map(Number);
+                    if (yearA !== yearB) return yearA - yearB;
+                    return weekA - weekB;
+                });
+
+                sortedKeys.forEach(weekKey => {
+                    const weekData = allWeeksData[weekKey];
+                    const dates = getWeekDates(weekData.startDate);
+                    
+                    combinedText += `\n${'='.repeat(60)}\n`;
+                    combinedText += `${weekData.year}년 ${weekData.week}주차`;
                     if (weekData.title) {
                         combinedText += ` - ${weekData.title}`;
                     }
-                    combinedText += `\n${'='.repeat(50)}\n\n`;
+                    if (dates) {
+                        combinedText += `\n${dates.start} ~ ${dates.end}`;
+                    }
+                    combinedText += `\n${'='.repeat(60)}\n\n`;
                     
-                    days.forEach(day => {
+                    days.forEach((day, index) => {
                         const dayData = weekData.data[day.key];
                         if (dayData.text) {
-                            combinedText += `【${day.label}】\n`;
+                            combinedText += `【${day.label}`;
+                            if (dates) {
+                                combinedText += ` ${dates.days[index].short}`;
+                            }
+                            combinedText += `】\n`;
                             combinedText += `${dayData.text}\n\n`;
                         }
                     });
@@ -131,7 +181,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `MANNA_${currentYear}_전체녹취.txt`;
+                a.download = `MANNA_전체녹취.txt`;
                 a.click();
                 URL.revokeObjectURL(url);
             };
@@ -143,9 +193,9 @@
                     reader.onload = (e) => {
                         try {
                             const data = JSON.parse(e.target.result);
-                            setCurrentYear(data.year || new Date().getFullYear());
                             setAllWeeksData(data.allWeeks || {});
-                            if (data.allWeeks && data.allWeeks[currentWeek]) {
+                            const weekKey = `${currentYear}-${currentWeek}`;
+                            if (data.allWeeks && data.allWeeks[weekKey]) {
                                 loadWeekData(currentWeek);
                             }
                         } catch (error) {
@@ -159,7 +209,6 @@
             const copyToClipboard = async () => {
                 saveCurrentWeek();
                 const data = {
-                    year: currentYear,
                     allWeeks: allWeeksData,
                     exportDate: new Date().toISOString()
                 };
@@ -175,6 +224,7 @@
             const completedCount = Object.values(weeklyData).filter(d => d.completed).length;
             const progress = (completedCount / 6) * 100;
             const totalWeeks = Object.keys(allWeeksData).length;
+            const weekDates = getWeekDates(weekStartDate);
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-6">
@@ -185,7 +235,10 @@
                                     <div className="text-4xl">🍞</div>
                                     <div>
                                         <h1 className="text-3xl font-bold text-amber-800">MANNA</h1>
-                                        <p className="text-sm text-gray-600">{currentYear}년 {currentWeek}주차</p>
+                                        <p className="text-sm text-gray-600">
+                                            {currentYear}년 {currentWeek}주차
+                                            {weekDates && ` (${weekDates.start} ~ ${weekDates.end})`}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex gap-2 flex-wrap">
@@ -214,31 +267,51 @@
                                 </div>
                             </div>
 
-                            <div className="mb-4 flex gap-3 items-center">
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="52"
-                                    value={currentWeek}
-                                    onChange={(e) => changeWeek(Number(e.target.value))}
-                                    className="w-24 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-center font-semibold"
-                                />
-                                <span className="text-gray-600">주차</span>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => changeWeek(Math.max(1, currentWeek - 1))}
-                                        className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-                                    >
-                                        ◀
-                                    </button>
-                                    <button
-                                        onClick={() => changeWeek(Math.min(52, currentWeek + 1))}
-                                        className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-                                    >
-                                        ▶
-                                    </button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div className="flex gap-3 items-center">
+                                    <label className="text-gray-700 font-medium">년도</label>
+                                    <input
+                                        type="number"
+                                        min="2024"
+                                        max="2030"
+                                        value={currentYear}
+                                        onChange={(e) => changeYear(Number(e.target.value))}
+                                        className="w-28 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-center font-semibold"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="52"
+                                        value={currentWeek}
+                                        onChange={(e) => changeWeek(Number(e.target.value))}
+                                        className="w-24 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-center font-semibold"
+                                    />
+                                    <span className="text-gray-600">주차</span>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => changeWeek(Math.max(1, currentWeek - 1))}
+                                            className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                                        >
+                                            ◀
+                                        </button>
+                                        <button
+                                            onClick={() => changeWeek(Math.min(52, currentWeek + 1))}
+                                            className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                                        >
+                                            ▶
+                                        </button>
+                                    </div>
                                 </div>
-                                <span className="text-sm text-gray-500 ml-auto">저장된 주차: {totalWeeks}개</span>
+                                
+                                <div className="flex gap-3 items-center">
+                                    <label className="text-gray-700 font-medium">시작일(월)</label>
+                                    <input
+                                        type="date"
+                                        value={weekStartDate}
+                                        onChange={(e) => setWeekStartDate(e.target.value)}
+                                        className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                                    />
+                                </div>
                             </div>
 
                             <input
@@ -249,9 +322,9 @@
                                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none text-lg mb-4"
                             />
 
-                            <div className="flex justify-between text-sm text-gray-600 mb-2">
-                                <span>이번 주 진행률</span>
-                                <span className="font-semibold">{completedCount}/6 완료</span>
+                            <div className="flex justify-between items-center text-sm mb-2">
+                                <span className="text-gray-600">이번 주 진행률: {completedCount}/6 완료</span>
+                                <span className="text-gray-500">총 저장: {totalWeeks}주차</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-3">
                                 <div
@@ -262,7 +335,7 @@
                         </div>
 
                         <div className="space-y-4">
-                            {days.map(({ key, label, color }) => (
+                            {days.map(({ key, label, color }, index) => (
                                 <div key={key} className={`bg-white rounded-lg shadow-md border-2 ${color} p-5`}>
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-3">
@@ -281,7 +354,14 @@
                                                     </svg>
                                                 )}
                                             </button>
-                                            <h3 className="text-xl font-semibold text-gray-800">{label}</h3>
+                                            <h3 className="text-xl font-semibold text-gray-800">
+                                                {label}
+                                                {weekDates && (
+                                                    <span className="text-base text-gray-500 ml-2">
+                                                        ({weekDates.days[index].short})
+                                                    </span>
+                                                )}
+                                            </h3>
                                         </div>
                                     </div>
                                     <textarea
@@ -303,10 +383,11 @@
                         <div className="mt-6 bg-white rounded-lg shadow-md p-5">
                             <h3 className="font-semibold text-gray-800 mb-2">💡 사용 팁</h3>
                             <ul className="text-sm text-gray-600 space-y-1">
-                                <li>• 주차를 변경하면 현재 작업이 자동으로 저장됩니다</li>
-                                <li>• '전체저장' 버튼으로 모든 주차 데이터를 파일로 백업하세요</li>
-                                <li>• '텍스트 합치기'로 모든 주차를 하나의 텍스트 파일로 내보낼 수 있습니다</li>
-                                <li>• 1년 52주차까지 관리할 수 있습니다</li>
+                                <li>• 년도와 주차를 변경하면 자동으로 저장됩니다</li>
+                                <li>• 시작일(월요일)을 입력하면 각 요일의 날짜가 자동 계산됩니다</li>
+                                <li>• '전체저장'으로 모든 데이터를 백업하세요</li>
+                                <li>• '텍스트 합치기'로 년도별, 주차별로 정리된 전체 녹취를 얻을 수 있습니다</li>
+                                <li>• 2026년, 2027년... 계속 사용 가능합니다</li>
                             </ul>
                         </div>
                     </div>
